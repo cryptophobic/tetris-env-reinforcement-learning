@@ -1,5 +1,36 @@
+import random
+
 import numpy as np
 
+shapes = [
+    np.array([
+        [1, 1, 1],
+        [0, 1, 0],
+    ]),
+    np.array([
+        [1, 1, 1, 1],
+    ]),
+    np.array([
+        [1, 1, 1],
+        [0, 0, 1],
+    ]),
+    np.array([
+        [1, 1, 1],
+        [1, 0, 0],
+    ]),
+    np.array([
+        [1, 1, 0],
+        [0, 1, 1],
+    ]),
+    np.array([
+        [0, 1, 1],
+        [1, 1, 0],
+    ]),
+    np.array([
+        [1, 1],
+        [1, 1],
+    ])
+]
 
 class TetrisEngine:
     """
@@ -22,7 +53,8 @@ class TetrisEngine:
 
     def spawn_piece(self):
         """Spawn a new piece at the top of the board"""
-        return {'shape': np.array([[1, 1, 1], [0, 1, 0]]), 'x': 3, 'y': 0}
+        # return np.random.choice
+        return {'shape': random.choice(shapes), 'x': 3, 'y': 0}
 
     def perform_action(self, action):
         """Perform an action (0: left, 1: right, 2: rotate, 3: down, 4: drop)"""
