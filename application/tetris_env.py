@@ -14,10 +14,10 @@ class TetrisEnv(gym.Env):
         super(TetrisEnv, self).__init__()
 
         # Initialize Tetris engine
-        self.engine = TetrisEngine(rows=30, cols=8)
+        self.engine = TetrisEngine(rows=4, cols=4)
 
         # Define action space (0: left, 1: right, 2: rotate, 3: down, 4: drop)
-        self.action_space = spaces.Discrete(4)
+        self.action_space = spaces.Discrete(3)
         self.action_counter = 0  # Track how many actions have been taken
         # Define observation space (20x10 board with binary values)
         self.observation_space = spaces.Box(low=0, high=1, shape=(self.engine.rows, self.engine.cols), dtype=np.float32)
@@ -27,6 +27,7 @@ class TetrisEnv(gym.Env):
         if seed is not None:
             np.random.seed(seed)  # Ensure deterministic resets
 
+        #self.engine.current_reward = 0
         """Reset the game to start a new episode"""
         self.engine.reset()
         return self._get_state(), {}
@@ -38,7 +39,7 @@ class TetrisEnv(gym.Env):
 
         # Force the piece to move down every 10 actions
         if self.action_counter % 5 == 0:
-            self.engine.perform_action(2)  # 3 corresponds to "move down"
+            self.engine.fall()  # 3 corresponds to "move down"
 
         # Get new state and reward
         state = self._get_state()
@@ -56,5 +57,6 @@ class TetrisEnv(gym.Env):
         self.engine.render()
 
     def close(self):
+        print("Closing environment")
         """Cleanup if needed"""
         pass
