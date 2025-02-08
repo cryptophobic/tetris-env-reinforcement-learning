@@ -6,10 +6,9 @@ def main():
     screen = pygame.display.set_mode((1, 1))  # Minimal window, not actually rendering
     pygame.display.set_caption("Key Event Listener")
 
-    engine = TetrisEngine(rows=8, cols=4)
+    engine = TetrisEngine(rows=10, cols=10)
     engine.reset()
     engine.render()
-
 
     running = True
     while running:
@@ -18,6 +17,7 @@ def main():
                 running = False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_w:
+                    engine.perform_action(TetrisEngine.ROTATE)
                     print("Key 'W' pressed")
                 elif event.key == pygame.K_a:
                     engine.perform_action(TetrisEngine.MOVE_LEFT)

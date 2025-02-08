@@ -14,10 +14,10 @@ class TetrisEnv(gym.Env):
         super(TetrisEnv, self).__init__()
 
         # Initialize Tetris engine
-        self.engine = TetrisEngine(rows=4, cols=4)
+        self.engine = TetrisEngine(rows=10, cols=10)
 
         # Define action space (0: left, 1: right, 2: rotate, 3: down, 4: drop)
-        self.action_space = spaces.Discrete(3)
+        self.action_space = spaces.Discrete(4)
         self.action_counter = 0  # Track how many actions have been taken
         # Define observation space (20x10 board with binary values)
         self.observation_space = spaces.Box(low=0, high=1, shape=(self.engine.rows, self.engine.cols), dtype=np.float32)

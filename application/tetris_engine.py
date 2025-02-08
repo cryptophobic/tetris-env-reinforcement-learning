@@ -1,4 +1,5 @@
 import random
+from time import sleep
 
 import numpy as np
 from stable_baselines3.common.callbacks import BaseCallback
@@ -33,15 +34,12 @@ class TetrisEngine:
             [1, 1],
             [1, 1],
         ]),
-        np.array([
-            [1]
-        ])
     ]
 
     MOVE_LEFT = 0
     MOVE_RIGHT = 1
-    #ROTATE = 2
-    DOWN = 2
+    ROTATE = 2
+    # DOWN = 2
     DROP = 3
 
     """
@@ -55,8 +53,9 @@ class TetrisEngine:
         self.current_reward = 0
         self.lines_cleared = 0
         self.actions_performed = 0
-        self.efficient_drop = 0
+        self.efficient_drop = 1
         self.current_height = 0
+        self.height_changed = False
         self.game_overs = 0
         self.floor = 0
         self.holes_created = 0
@@ -71,30 +70,31 @@ class TetrisEngine:
         self.current_height = 0
         self.current_reward = 0
         self.holes_created = 0
+        self.efficient_drop = 1
         self.floor = 0
+        self.height_changed = False
         self.game_over = False
 
     def spawn_piece(self):
         """Spawn a new piece at the top of the board"""
         self.actions_performed = 0
         self.current_reward += 1
-        return {'shape': self.shapes[7], 'x': 1, 'y': 0}
-        # return {'shape': random.choice(self.shapes), 'x': 3, 'y': 0}
+        return {'shape': random.choice(self.shapes), 'x': 3, 'y': 0}
 
     def perform_action(self, action):
         """Perform an action (0: left, 1: right, 2: rotate, 3: down, 4: drop)"""
-        if action != 2:
+        if action != 3:
             self.actions_performed += 1
 
         if action == 0:
             self.move(-1)
         elif action == 1:
             self.move(1)
-        # elif action == 2:
-        #     self.rotate()
+        elif action == 2:
+            self.rotate()
         # elif action == 2:
         #    self.fall()
-        elif action == 2:
+        elif action == 3:
             self.hard_drop()
 
         if self.is_collision():
@@ -103,17 +103,13 @@ class TetrisEngine:
             self.merge_piece()
             self.clear_lines()
             self.current_piece = self.spawn_piece()
-            if self.is_collision():  # If new piece collides, game over
-                #self.render()
+            if self.is_collision() or self.current_height == self.rows:  # If new piece collides, game over
                 self.game_over = True
                 self.game_overs += 1
                 self.current_reward -= 100
                 self.holes_created = 0
-
-            #if not self.game_over is True:
-                #self.render()
-
-                #print(self.game_overs)
+            else:
+                self.render()
 
     def move(self, direction):
         """Move piece left (-1) or right (+1)"""
@@ -164,19 +160,40 @@ class TetrisEngine:
         return holes
 
     def calculate_drop_efficiency(self):
-        """Calculate the drop efficiency based on available space left and right."""
-        x, y = self.current_piece['x'], self.current_piece['y']
-        shape_width = self.current_piece['shape'].shape[1]
+        """Calculate how well a piece is placed based on neighboring blocks."""
+        piece = self.current_piece
+        shape = piece['shape']
+        x, y = piece['x'], piece['y']
+        score = 0
 
-        space_left = x > 0 and self.board[y, x - 1] == 0
-        space_right = x + shape_width < self.cols and self.board[y, x + shape_width] == 0
+        for i in range(len(shape)):
+            check_piece_next = True if x == 0 else False
+            check_board_next = False
 
-        if space_left and space_right:
-            return 0  # Space available on both sides
-        elif space_left or space_right:
-            return 1  # Space available on one side only
-        else:
-            return 2  # No space on either side
+            if check_piece_next is False and self.board[y + i, x - 1] == 1:
+                check_piece_next = True
+
+            for j in range(len(shape[i])):
+                if check_piece_next is True:
+                    check_piece_next = False
+                    if shape[i, j] == 1:
+                        score += 1
+
+                if check_board_next is True:
+                    check_board_next = False
+                    if self.board[y + i, x + j] == 1:
+                        score += 1
+
+                if shape[i, j] == 1:
+                    check_board_next = True
+                elif self.board[y + i, x + j] == 1:
+                    check_piece_next = True
+
+            if check_board_next is True:
+                j = len(shape[i])
+                if j + x >= self.cols or self.board[y + i, x + j] == 1:
+                    score += 1
+        return score
 
     def merge_piece(self):
         """Merge the current piece into the board"""
@@ -203,9 +220,12 @@ class TetrisEngine:
         #    self.current_reward += current_reward
 
         #self.current_reward -= 1
+        last_height = self.current_height
         self.current_height = self.calculate_max_height()
-        self.holes_created = self.count_holes()
+        if self.current_height > last_height:
+            self.height_changed = True
 
+        self.holes_created = self.count_holes()
 
     def calculate_max_height(self):
         """Calculate the maximum height of stacked pieces."""
@@ -228,19 +248,26 @@ class TetrisEngine:
 
     def get_reward(self):
         """Return a reward based on the number of lines cleared"""
-        height_penalty = (self.current_height if self.current_height - 1 > 0 else 0) * 2
-        action_penalty = max(0, self.actions_performed - 3)  # Only penalize if more than 5 actions
+        height_penalty = 0
+        if self.height_changed:
+            height_penalty = (self.current_height if self.current_height - 1 > 0 else 0) ** 2
+        action_penalty = 0 # max(0, self.actions_performed - 3)  # Only penalize if more than 5 actions
 
+        updated_efficient_drop = -4 if self.efficient_drop == 0 else self.efficient_drop * 4
         # ✅ Weighted average to balance current reward with past rewards
         self.current_reward = 0.8 * self.current_reward + 0.2 * (
-                    (self.lines_cleared * 10) - self.holes_created - height_penalty - action_penalty + self.efficient_drop - ((self.rows - 1 - self.floor) * 2))
+                    (self.lines_cleared * 10)
+                    - (self.holes_created ** 2) - height_penalty - action_penalty
+                    + (updated_efficient_drop ** 2) + (0 if self.floor < self.cols - 3 else self.floor) * 3
+        )
 
-        #print(f"height_penalty: {height_penalty}")
-        #print(f"current_height: {self.current_height}")
-        #print(f"actions_performed: {self.actions_performed}")
-        #print(f"lines_cleared: {self.lines_cleared}")
-        #print(f"holes_created: {self.holes_created}")
-        #print(f"efficient_drop: {self.efficient_drop}")
+        # print(f"height_penalty: {height_penalty}")
+        # print(f"current_height: {self.current_height}")
+        # print(f"actions_performed: {self.actions_performed}")
+        # print(f"lines_cleared: {self.lines_cleared}")
+        # print(f"holes_created: {self.holes_created}")
+        # print(f"efficient_drop: {self.efficient_drop}")
+        # sleep(0.5)
 
         return self.current_reward
 
@@ -257,9 +284,7 @@ class TetrisEngine:
             self.board[y, x] = 1
             collision = self.is_collision()
             self.board[y, x] = 0
-
             return "⬜⬜" if collision else "⬛⬛"
-
 
         print("\n".join(["".join(["⬜⬜" if cell else render_piece(x, y) for x, cell in enumerate(row)]) for y, row in enumerate(self.board)]))
         print(self.get_reward())

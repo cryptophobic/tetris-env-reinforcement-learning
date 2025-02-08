@@ -18,10 +18,10 @@ try:
     # tensorboard_log_dir = "./ppo_tetris_log/"
     # model = PPO("MlpPolicy", env, verbose=1, tensorboard_log=tensorboard_log_dir,
     #             learning_rate=0.00025, n_steps=4096, batch_size=64)
-    model = PPO("MlpPolicy", envTimeLimit, verbose=1, learning_rate=0.00025, n_steps=2048, batch_size=64)
+    model = PPO("MlpPolicy", envTimeLimit, verbose=1, learning_rate=0.00025, n_steps=4096, batch_size=128)
 
     # Train the model
-    model.learn(total_timesteps=5000000, callback=CustomCallback(envTimeLimit, check_freq=2048))
+    model.learn(total_timesteps=5000000, callback=CustomCallback(envTimeLimit, check_freq=4096))
 
     # Save the trained model
     model.save("tetris_ppo")
