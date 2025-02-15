@@ -1,4 +1,5 @@
-from typing import List, Tuple
+import os
+from typing import List, Tuple, Callable
 
 import numpy as np
 import pandas as pd
@@ -7,28 +8,38 @@ from application.Board import Board
 from application.Perform import Action
 from application.Piece import Piece
 
+import inspect
+
 
 class Track:
 
-    HEIGHT = 0
-    HOLES = 1
-    DROP_SCORE = 2
-    ACTIONS = 3
-    LINES_CLEARED = 4
-    GAME_OVER = 5
+    PIECE = 0
+    HEIGHT = 1
+    HOLES = 2
+    DROP_SCORE = 3
+    ACTIONS = 4
+    LINES_CLEARED = 5
     FLOOR = 6
+    COLLISIONS = 7
+    GAME_OVER = 8
+    RESET = 9
 
-    FLOOR_REWARD = 7
-    DROP_REWARD = 8
-    LINES_REWARD = 9
-    HEIGHT_PENALTY = 10
-    DROP_PENALTY = 11
-    HOLES_PENALTY = 12
+    FLOOR_REWARD = 10
+    DROP_REWARD = 11
+    LINES_REWARD = 12
+    HEIGHT_PENALTY = 13
+    DROP_PENALTY = 14
+    HOLES_PENALTY = 15
 
-    REWARD = 13
-    PENALTY = 14
-    REWARD_DIFF = 15
-    PENALTY_DIFF = 16
+    REWARD = 16
+    PENALTY = 17
+    REWARD_DIFF = 18
+    PENALTY_DIFF = 19
+
+    HEADER = ['PIECE', "HEIGHT", "HOLES", "DROP_SCORE", "ACTIONS", "LINES_CLEARED",
+            "FLOOR", "COLLISIONS", "GAME_OVER", "RESET", "FLOOR_REWARD",
+            "DROP_REWARD", "LINES_REWARD", "HEIGHT_PENALTY", "DROP_PENALTY",
+            "HOLES_PENALTY", "REWARD", "PENALTY", "REWARD_DIFF", "PENALTY_DIFF"]
 
     def __init__(self,
                  board: Board,
@@ -41,43 +52,111 @@ class Track:
         self.buffer_size = buffer_size
         self.save_path = save_path
         self.index = 0  # Track current buffer position
-        self.postfix = 0
 
-        self.data_buffer = np.zeros(shape=(buffer_size, 11), dtype=float)
+        self.data_buffer = np.zeros(shape=(buffer_size, 20), dtype=float)
 
         self.heights: List[int] = []
         self.holes: List[int] = []
-        self.drop_scores: List[float] = []
         self.actions_per_drop: int = 0
+        self.collisions_per_drop = 0
         self.actions_per_drop_count: List[int] = []
         self.lines_cleared: List[int] = []
         self.actions: List[int] = []
 
-    def action(self, action: Action):
-        self.actions_per_drop += 1
-        # self.actions_per_drop.append(action)
+    def action_wrapper(self, method: Callable):
+        def wrapper(*args, **kwargs):
+            # TODO: example of args extracting
+            # sig = inspect.signature(method)
+            # bound_args = sig.bind(*args, **kwargs)
+            # bound_args.apply_defaults()  # Apply default values if missing
 
-    def drop(self, piece: Piece):
-        self.data_buffer[self.index][self.ACTIONS] = self.actions_per_drop
-        self.data_buffer[self.index][self.DROP_SCORE] = self.calculate_drop_efficiency(piece)
-        # self.actions_per_drop_count.append(len(self.actions_per_drop))
-        self.actions_per_drop = 0
+            # action = bound_args.arguments.get('action')
+            # self.actions_per_drop.append(action)
+            self.actions_per_drop += 1
+            result = method(*args, **kwargs)
 
-    def clear_lines(self, lines_number):
-        """Could be zero"""
-        self.data_buffer[self.index][self.LINES_CLEARED] = lines_number
+            return result
 
-    def merge(self, piece: Piece):
-        holes, height = self.count_holes_and_height()
-        self.data_buffer[self.index][self.HOLES] = holes
-        self.data_buffer[self.index][self.HEIGHT] = height
+        return wrapper
 
-    def game_over(self):
-        self.data_buffer[self.index][self.GAME_OVER] = 1
+    def fail_wrapper(self, method: Callable):
+        def wrapper(*args, **kwargs):
+            result = method(*args, **kwargs)
+            self.collisions_per_drop += 1
 
-    def spawn(self):
-        self.index += 1
+            return result
 
+        return wrapper
+
+    def drop_wrapper(self, method: Callable):
+        def wrapper(*args, **kwargs):
+            piece = method(*args, **kwargs)
+            self.data_buffer[self.index][self.ACTIONS] = self.actions_per_drop
+            self.data_buffer[self.index][self.DROP_SCORE] = self.calculate_drop_efficiency(piece)
+            self.data_buffer[self.index][self.COLLISIONS] = self.collisions_per_drop
+            # self.actions_per_drop_count.append(len(self.actions_per_drop))
+            self.actions_per_drop = 0
+            self.collisions_per_drop = 0
+
+            return piece
+
+        return wrapper
+
+    def merge_wrapper(self, method):
+        def wrapper(*args, **kwargs):
+            result = method(*args, **kwargs)
+            holes, height = self.count_holes_and_height()
+            self.data_buffer[self.index][self.HOLES] = holes
+            self.data_buffer[self.index][self.HEIGHT] = height
+
+            return result
+
+        return wrapper
+
+    def clear_lines_wrapper(self, method):
+        def wrapper(*args, **kwargs):
+            lines_number = method(*args, **kwargs)
+            """Could be zero"""
+            self.data_buffer[self.index][self.LINES_CLEARED] = lines_number
+
+            return lines_number
+
+        return wrapper
+
+    def set_game_over_wrapper(self, method):
+        def wrapped(*args, **kwargs):
+            result = method(*args, **kwargs)
+            self.data_buffer[self.index][self.GAME_OVER] = 1
+            self.reward = 0
+            self.penalty = 0
+            return result
+
+        return wrapped
+
+    def reset_wrapper(self, method):
+        def wrapped(*args, **kwargs):
+            result = method(*args, **kwargs)
+            self.data_buffer[self.index][self.RESET] = 1
+            self.reward = 0
+            self.penalty = 0
+            return result
+
+        return wrapped
+
+    def spawn_piece_wrapper(self, method):
+        """Decorator to wrap Engine.spawn_piece"""
+        def wrapped(*args, **kwargs):
+            result = method(*args, **kwargs)  # Call the original spawn_piece
+            if self.index >= self.buffer_size:
+                self.flush_to_disk()
+            return result  # Preserve return value if needed
+
+        return wrapped
+
+    # 1 line = 1
+    # 2 lines = 3
+    # 3 lines = 5
+    # 4 lines = 10
     def calculate_reward_penalty(self):
         efficient_drop = self.data_buffer[self.index][self.DROP_SCORE]
         current_height = self.data_buffer[self.index][self.HEIGHT]
@@ -115,7 +194,7 @@ class Track:
         self.data_buffer[self.index][self.DROP_REWARD] = drop_reward
         self.data_buffer[self.index][self.HOLES_PENALTY] = holes_penalty
         self.data_buffer[self.index][self.LINES_REWARD] = lines_reward
-
+        self.index += 1  # Track the call count
 
     def calculate_max_height(self):
         """Calculate the maximum height of stacked pieces."""
@@ -177,20 +256,25 @@ class Track:
 
     def flush_to_disk(self):
         """Write buffer to CSV and reset it"""
-        df = pd.DataFrame(self.data_buffer, columns=[
-            "HEIGHT", "HOLES", "DROP_SCORE", "ACTIONS",
-            "LINES_CLEARED", "GAME_OVER", "FLOOR", "FLOOR_REWARD",
-            "DROP_REWARD", "LINES_REWARD", "HEIGHT_PENALTY", "DROP_PENALTY",
-            "HOLES_PENALTY", "REWARD", "PENALTY", "REWARD_DIFF", "PENALTY_DIFF"])
-        df.to_csv(self.save_path, mode='a', header=not pd.io.common.file_exists(self.save_path), index=False)
+        df = pd.DataFrame(self.data_buffer, columns=Track.HEADER)
+        df.to_csv(self.save_path, mode='a', header=not os.path.exists(self.save_path), index=False)
 
         # Reset buffer
         self.data_buffer.fill(0)
         self.index = 0
 
+    def last_line(self):
+        if self.index > 0:
+            for i, title in enumerate(Track.HEADER):
+                print(f"{title}={self.data_buffer[self.index][i]} ", end='')
+        print("\n-----")
+        if self.index > 1:
+            for i, title in enumerate(Track.HEADER):
+                print(f"{title}={self.data_buffer[self.index-1][i]} ", end='')
+        print("\n.....")
+
     def close(self):
         """Ensure remaining data is written before exiting"""
         if self.index > 0:
             self.flush_to_disk()
-
 

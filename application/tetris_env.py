@@ -1,7 +1,8 @@
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
-from application.tetris_engine import TetrisEngine
+
+from application.Engine import Engine
 
 
 class TetrisEnv(gym.Env):
@@ -14,13 +15,13 @@ class TetrisEnv(gym.Env):
         super(TetrisEnv, self).__init__()
 
         # Initialize Tetris engine
-        self.engine = TetrisEngine(rows=10, cols=10)
+        self.engine = Engine(rows=10, cols=10)
 
         # Define action space (0: left, 1: right, 2: rotate, 3: down, 4: drop)
         self.action_space = spaces.Discrete(4)
         self.action_counter = 0  # Track how many actions have been taken
         # Define observation space (20x10 board with binary values)
-        self.observation_space = spaces.Box(low=0, high=1, shape=(self.engine.rows, self.engine.cols), dtype=np.float32)
+        self.observation_space = spaces.Box(low=0, high=1, shape=(self.engine.board.rows, self.engine.board.cols), dtype=np.float32)
 
     def reset(self, seed=None, options=None):
         """Reset the game state"""
@@ -34,12 +35,12 @@ class TetrisEnv(gym.Env):
 
     def step(self, action):
         """Perform an action in the game"""
-        self.engine.perform_action(action)
+        self.engine.action(action)
         self.action_counter += 1
 
-        # Force the piece to move down every 10 actions
-        if self.action_counter % 5 == 0:
-            self.engine.fall()  # 3 corresponds to "move down"
+        # Force the piece to move down every 5 actions
+        if self.engine.tracker.actions_per_drop % 5 == 0:
+            self.engine.fall()
 
         # Get new state and reward
         state = self._get_state()
@@ -59,4 +60,4 @@ class TetrisEnv(gym.Env):
     def close(self):
         print("Closing environment")
         """Cleanup if needed"""
-        pass
+        self.engine.tracker.flush_to_disk()

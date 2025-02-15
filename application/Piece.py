@@ -1,6 +1,5 @@
 import random
 import numpy as np
-from application.Vectors import Vec2
 
 shapes = [
     np.array([
@@ -33,22 +32,17 @@ shapes = [
 ]
 
 class Piece:
-    def __init__(self, index: int = -1, position: Vec2 = Vec2(3, 0)):
+
+    ANY_TETRIMINO = -1
+    T_TETRIMINO = 0
+    I_TETRIMINO = 1
+    J_TETRIMINO = 2
+    L_TETRIMINO = 3
+    Z_TETRIMINO = 4
+    S_TETRIMINO = 5
+    O_TETRIMINO = 6
+
+    def __init__(self, x: int = 3, y: int = 0, index: int = ANY_TETRIMINO):
         self.shape: np.ndarray = shapes[index] if 0 <= index < len(shapes) else random.choice(shapes)
-        self.position: Vec2 = position
-
-    @property
-    def x(self):
-        return self.position.X
-
-    @x.setter
-    def x(self, value):
-        self.position.X = value
-
-    @property
-    def y(self):
-        return self.position.Y
-
-    @y.setter
-    def y(self, value):
-        self.position.Y = value
+        self.x: int = x
+        self.y: int = y
