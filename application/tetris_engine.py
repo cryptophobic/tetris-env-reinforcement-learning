@@ -238,14 +238,6 @@ class TetrisEngine:
         """Return the current board state as an observation"""
         return self.board.copy().astype(np.float32)
 
-    def get_reward_(self):
-        """Return a reward based on the number of lines cleared"""
-        height_penalty = self.current_height * 3
-        action_penalty = max(0, self.actions_performed - 3)  # Only penalize if more than 5 actions
-        self.current_reward = ((self.lines_cleared * 10) - self.holes_created) + self.efficient_drop - height_penalty - action_penalty# Reduce hole penalty
-
-        return self.current_reward
-
     def get_reward(self):
         """Return a reward based on the number of lines cleared"""
         height_penalty = 0
