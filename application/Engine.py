@@ -1,22 +1,16 @@
-import random
-from time import sleep
-
-import numpy as np
 from stable_baselines3.common.callbacks import BaseCallback
+from application.Board import Board
+from application.Piece import Piece
 
 
-class TetrisEngine:
+class Engine:
     """
     Simplified Tetris game engine for RL training
     """
     def __init__(self, rows=20, cols=10):
-        self.rows = rows
-        self.cols = cols
-        self.board = np.zeros((rows, cols), dtype=np.int8)
-        self.current_piece = None
-        self.current_reward = 0
-        self.lines_cleared = 0
-        self.actions_performed = 0
+
+        self.board = Board(rows, cols)
+        self.current_piece: Piece|None = None
         self.efficient_drop = 1
         self.current_height = 0
         self.height_changed = False
