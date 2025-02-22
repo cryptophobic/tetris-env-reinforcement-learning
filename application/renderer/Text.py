@@ -1,10 +1,8 @@
-from application.Board import Board
 from application.Piece import Piece
+from application.renderer.Renderer import Renderer
 
 
-class Renderer:
-    def __init__(self, board: Board):
-        self.board = board
+class Text(Renderer):
 
     def render(self, piece: Piece|None):
         """Render the board in text mode (for debugging)"""

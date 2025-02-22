@@ -1,17 +1,15 @@
 from time import sleep
 
-from application.Engine import Engine
 import pygame
 
+from application.Engine import Engine
 from application.Perform import Action
+from application.config import DESK_HEIGHT, DESK_WIDTH
 
 
 def main():
-    pygame.init()
-    screen = pygame.display.set_mode((1, 1))  # Minimal window, not actually rendering
-    pygame.display.set_caption("Key Event Listener")
 
-    engine = Engine(rows=10, cols=10)
+    engine = Engine(rows=DESK_HEIGHT, cols=DESK_WIDTH, render_type="Graphics")
     engine.reset()
     engine.render()
 
@@ -25,15 +23,12 @@ def main():
                     running = False
                 elif event.key == pygame.K_w:
                     engine.action(Action.ROTATE)
-                    print("Key 'W' pressed")
                 elif event.key == pygame.K_a:
                     engine.action(Action.MOVE_LEFT)
                 elif event.key == pygame.K_s:
                     engine.action(Action.DROP)
-                    print("Key 'S' pressed")
                 elif event.key == pygame.K_d:
                     engine.action(Action.MOVE_RIGHT)
-                    print("Key 'D' pressed")
             engine.render()
 
 

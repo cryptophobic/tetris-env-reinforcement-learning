@@ -3,19 +3,21 @@ import numpy as np
 from application.Board import Board
 from application.Perform import Perform
 from application.Piece import Piece
-from application.Renderer import Renderer
+from application.renderer.Graphics import Graphics
+from application.renderer.Renderer import Renderer
 from application.Track import Track
+from application.renderer.Text import Text
 
 
 class Engine:
     """
     Simplified Tetris game engine for RL training
     """
-    def __init__(self, rows=20, cols=10):
-        self.board = Board(rows, cols)
+    def __init__(self, rows=20, cols=10, render_type="Text"):
+        self.board = Board(rows=rows, cols=cols)
         self.tracker = Track(self.board)
         self.perform = Perform(self.board)
-        self.renderer = Renderer(self.board)
+        self.renderer: Renderer = Text(self.board) if render_type == "Text" else Graphics(self.board)
 
         self.current_piece: Piece|None = None
         self.game_over = False
@@ -63,7 +65,6 @@ class Engine:
 
     def _action(self, action):
         """Perform an action (0: left, 1: right, 2: rotate, 3: down, 4: drop)"""
-        print(action)
         result, grounded, self.current_piece = self.perform.perform(action, self.current_piece)
 
         if not result:
