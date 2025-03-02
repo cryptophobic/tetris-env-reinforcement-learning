@@ -1,12 +1,15 @@
-from application.tetris_engine import TetrisEngine
+from time import sleep
+
 import pygame
 
-def main():
-    pygame.init()
-    screen = pygame.display.set_mode((1, 1))  # Minimal window, not actually rendering
-    pygame.display.set_caption("Key Event Listener")
+from application.Engine import Engine
+from application.Perform import Action
+from application.config import DESK_HEIGHT, DESK_WIDTH
 
-    engine = TetrisEngine(rows=10, cols=10)
+
+def main():
+
+    engine = Engine(rows=DESK_HEIGHT, cols=DESK_WIDTH, render_type="Graphics")
     engine.reset()
     engine.render()
 
@@ -16,18 +19,20 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_w:
-                    engine.perform_action(TetrisEngine.ROTATE)
-                    print("Key 'W' pressed")
+                if event.key == pygame.K_ESCAPE:
+                    running = False
+                elif event.key == pygame.K_w:
+                    engine.action(Action.ROTATE)
                 elif event.key == pygame.K_a:
-                    engine.perform_action(TetrisEngine.MOVE_LEFT)
+                    engine.action(Action.MOVE_LEFT)
                 elif event.key == pygame.K_s:
-                    engine.perform_action(TetrisEngine.DROP)
-                    print("Key 'S' pressed")
+                    engine.action(Action.DROP)
                 elif event.key == pygame.K_d:
-                    engine.perform_action(TetrisEngine.MOVE_RIGHT)
-                    print("Key 'D' pressed")
+                    engine.action(Action.MOVE_RIGHT)
             engine.render()
+
+
+    engine.tracker.flush_to_disk()
     pygame.quit()
 
 if __name__ == "__main__":

@@ -6,42 +6,6 @@ from stable_baselines3.common.callbacks import BaseCallback
 
 
 class TetrisEngine:
-    shapes = [
-        np.array([
-            [1, 1, 1],
-            [0, 1, 0],
-        ]),
-        np.array([
-            [1, 1, 1, 1],
-        ]),
-        np.array([
-            [1, 1, 1],
-            [0, 0, 1],
-        ]),
-        np.array([
-            [1, 1, 1],
-            [1, 0, 0],
-        ]),
-        np.array([
-            [1, 1, 0],
-            [0, 1, 1],
-        ]),
-        np.array([
-            [0, 1, 1],
-            [1, 1, 0],
-        ]),
-        np.array([
-            [1, 1],
-            [1, 1],
-        ]),
-    ]
-
-    MOVE_LEFT = 0
-    MOVE_RIGHT = 1
-    ROTATE = 2
-    # DOWN = 2
-    DROP = 3
-
     """
     Simplified Tetris game engine for RL training
     """
@@ -111,99 +75,6 @@ class TetrisEngine:
             else:
                 self.render()
 
-    def move(self, direction):
-        """Move piece left (-1) or right (+1)"""
-        self.current_piece['x'] += direction
-        if self.is_collision():
-            self.current_piece['x'] -= direction
-
-    def rotate(self):
-        """Rotate the piece clockwise"""
-        self.current_piece['shape'] = np.rot90(self.current_piece['shape'])
-        if self.is_collision():
-            self.current_piece['shape'] = np.rot90(self.current_piece['shape'], -1)
-
-    def fall(self):
-        """Move piece down by one step"""
-        self.current_piece['y'] += 1
-        if self.is_collision():
-            self.current_piece['y'] -= 1
-            self.merge_piece()
-
-    def hard_drop(self):
-        """Drop the piece instantly to the lowest valid position"""
-        while not self.is_collision():
-            self.current_piece['y'] += 1
-        self.current_piece['y'] -= 1
-        self.merge_piece()
-
-    def is_collision(self):
-        """Check if the current piece collides with the board or boundaries"""
-        shape = self.current_piece['shape']
-        x, y = self.current_piece['x'], self.current_piece['y']
-        for i in range(shape.shape[0]):
-            for j in range(shape.shape[1]):
-                if shape[i, j] and (y + i >= self.rows or x + j < 0 or x + j >= self.cols or self.board[y + i, x + j]):
-                    return True
-        return False
-
-    def count_holes(self):
-        """Count the number of holes in the board (empty spaces beneath filled blocks)."""
-        holes = 0
-        for col in range(self.cols):
-            filled = False  # Tracks if we have encountered a filled cell
-            for row in range(self.rows):
-                if self.board[row, col] == 1:
-                    filled = True  # Found a filled block
-                elif self.board[row, col] == 0 and filled:
-                    holes += 1  # Empty space below a filled block is a hole
-        return holes
-
-    def calculate_drop_efficiency(self):
-        """Calculate how well a piece is placed based on neighboring blocks."""
-        piece = self.current_piece
-        shape = piece['shape']
-        x, y = piece['x'], piece['y']
-        score = 0
-
-        for i in range(len(shape)):
-            check_piece_next = True if x == 0 else False
-            check_board_next = False
-
-            if check_piece_next is False and self.board[y + i, x - 1] == 1:
-                check_piece_next = True
-
-            for j in range(len(shape[i])):
-                if check_piece_next is True:
-                    check_piece_next = False
-                    if shape[i, j] == 1:
-                        score += 1
-
-                if check_board_next is True:
-                    check_board_next = False
-                    if self.board[y + i, x + j] == 1:
-                        score += 1
-
-                if shape[i, j] == 1:
-                    check_board_next = True
-                elif self.board[y + i, x + j] == 1:
-                    check_piece_next = True
-
-            if check_board_next is True:
-                j = len(shape[i])
-                if j + x >= self.cols or self.board[y + i, x + j] == 1:
-                    score += 1
-        return score
-
-    def merge_piece(self):
-        """Merge the current piece into the board"""
-        shape = self.current_piece['shape']
-        x, y = self.current_piece['x'], self.current_piece['y']
-        for i in range(shape.shape[0]):
-            for j in range(shape.shape[1]):
-                if shape[i, j]:
-                    self.board[y + i, x + j] = 1
-
     def clear_lines(self):
         """Clear completed lines and shift down"""
         full_rows = [i for i in range(self.rows) if np.all(self.board[i, :])]
@@ -227,24 +98,9 @@ class TetrisEngine:
 
         self.holes_created = self.count_holes()
 
-    def calculate_max_height(self):
-        """Calculate the maximum height of stacked pieces."""
-        for row in range(self.rows):
-            if np.any(self.board[row, :]):  # If any block exists in the row
-                return self.rows - row  # Height from the bottom
-        return 0  # If board is empty
-
     def get_board_state(self):
         """Return the current board state as an observation"""
         return self.board.copy().astype(np.float32)
-
-    def get_reward_(self):
-        """Return a reward based on the number of lines cleared"""
-        height_penalty = self.current_height * 3
-        action_penalty = max(0, self.actions_performed - 3)  # Only penalize if more than 5 actions
-        self.current_reward = ((self.lines_cleared * 10) - self.holes_created) + self.efficient_drop - height_penalty - action_penalty# Reduce hole penalty
-
-        return self.current_reward
 
     def get_reward(self):
         """Return a reward based on the number of lines cleared"""
